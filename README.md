@@ -1,3 +1,5 @@
+# 更改自lilu0826/alitv_openlist，适合在Vercel等网站上部署
+
 # alitv_openlist
 
 通过阿里云盘TV获取token,只需要超级会员即可不限速、不限流量使用（无需购买第三方流量包）
