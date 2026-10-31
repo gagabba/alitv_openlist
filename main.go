@@ -401,48 +401,66 @@ func postToken(c *gin.Context) {
 
 // 获取 token
 func handleToken(c *gin.Context, body map[string]interface{}) {
-	requestInfo, err := GenerateRequestInfo("/v4/token", body)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
-		return
-	}
-	resp, err := client.R().
-		SetHeaders(requestInfo["headers"].(map[string]string)).
-		SetBody(requestInfo["body"].(map[string]interface{})).
-		Post("https://api.extscreen.com/aliyundrive/v4/token")
+        requestInfo, err := GenerateRequestInfo("/v4/token", body)
+        if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+                return
+        }
+        resp, err := client.R().
+                SetHeaders(requestInfo["headers"].(map[string]string)).
+                SetBody(requestInfo["body"].(map[string]interface{})).
+                Post("https://api.extscreen.com/aliyundrive/v4/token")
 
-	if err != nil || resp.StatusCode() != 200 {
-		c.JSON(http.StatusOK, gin.H{
-			"refresh_token": "",
-			"access_token":  "",
-			"text":          "Failed to refresh token",
-		})
-		return
-	}
+        if err != nil || resp.StatusCode() != 200 {
+                c.JSON(http.StatusOK, gin.H{
+                        "refresh_token": "",
+                        "access_token":  "",
+                        "text":          "Failed to refresh token",
+                })
+                return
+        }
 
-	var tokenData map[string]interface{}
-	json.Unmarshal(resp.Body(), &tokenData)
+        var tokenData map[string]interface{}
+        json.Unmarshal(resp.Body(), &tokenData)
 
-	data := tokenData["data"].(map[string]interface{})
+        data := tokenData["data"].(map[string]interface{})
 
-	plain, err := Decrypt(data["ciphertext"].(string), data["iv"].(string), requestInfo["key"].(string))
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"refresh_token": "",
-			"access_token":  "",
-			"text":          err.Error(),
-		})
-		return
-	}
+        plain, err := Decrypt(data["ciphertext"].(string), data["iv"].(string), requestInfo["key"].(string))
+        if err != nil {
+                c.JSON(http.StatusOK, gin.H{
+                        "refresh_token": "",
+                        "access_token":  "",
+                        "text":          err.Error(),
+                })
+                return
+        }
 
-	var token map[string]string
-	json.Unmarshal([]byte(plain), &token)
+        // 临时日志：打印阿里返回的完整明文，确认是否包含 default_drive_id
+        log.Printf("[DEBUG] /v4/token plain: %s", plain)
 
-	c.JSON(http.StatusOK, gin.H{
-		"refresh_token": token["refresh_token"],
-		"access_token":  token["access_token"],
-		"text":          "",
-	})
+        var token map[string]interface{}
+        if err := json.Unmarshal([]byte(plain), &token); err != nil {
+                c.JSON(http.StatusOK, gin.H{
+                        "refresh_token": "",
+                        "access_token":  "",
+                        "text":          err.Error(),
+                })
+                return
+        }
+
+        var token map[string]interface{}
+        if err := json.Unmarshal([]byte(plain), &token); err != nil {
+                c.JSON(http.StatusOK, gin.H{
+                        "refresh_token": "",
+                        "access_token":  "",
+                        "text":          err.Error(),
+                })
+                return
+        }
+
+        // 原样透传所有字段，补 text 表示成功
+        token["text"] = ""
+        c.JSON(http.StatusOK, token)
 }
 
 func main() {
