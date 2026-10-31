@@ -21,6 +21,31 @@ import (
         "strings"
         "time"
 
+完整代码如下,覆盖你 fork 里的 main.go,push 到 main 分支即可。
+
+package main
+
+import (
+        "bytes"
+        "crypto/aes"
+        "crypto/cipher"
+        "crypto/md5"
+        "crypto/sha256"
+        _ "embed"
+        "encoding/base64"
+        "encoding/hex"
+        "encoding/json"
+        "errors"
+        "fmt"
+        "log"
+        "math/rand"
+        "net/http"
+        "os"
+        "sort"
+        "strconv"
+        "strings"
+        "time"
+
         "github.com/gin-gonic/gin"
         "github.com/go-resty/resty/v2"
 )
@@ -48,11 +73,7 @@ func getSign(apiPath string, t string) string {
         key := GenerateKey(t)
         data := fmt.Sprintf("POST-/api%v-%v-%v-%v", apiPath, t, params["d"], key)
         hash := sha256.Sum256([]byte(data))
-        return hex.EncodeToString(hash[:])
-}
-
-func Encrypt(plaintextStr, ivHex, keyStr string) (string, error) {
-        key := []byte(keyStr)
+te(keyStr)
         if len(key) != 32 {
                 return "", errors.New("key 长度必须为 32 字节（AES-256）")
         }
@@ -70,14 +91,13 @@ func Encrypt(plaintextStr, ivHex, keyStr string) (string, error) {
         return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-func pkcs7Pad(data []byte, blockSize int) []byte {
+func pkcs7Pad(data []byte, blockSize int) []byte
         padding := blockSize - len(data)%blockSize
         return append(data, bytes.Repeat([]byte{byte(padding)}, padding)...)
 }
 
-func Decrypt(ciphertextB64, ivHex, keyStr string) (string, error) {
-        key := []byte(keyStr)
-        if len(key) != 32 {
+func Decrypt(ciphertextB64, ivHex, keyStr string)
+ != 32 {
                 return "", errors.New("key 长度超过 32 字节，不能用于 AES-256")
         }
         iv, err := hex.DecodeString(ivHex)
@@ -100,9 +120,8 @@ func Decrypt(ciphertextB64, ivHex, keyStr string) (string, error) {
         }
         plaintext := make([]byte, len(ciphertext))
         cipher.NewCBCDecrypter(block, iv).CryptBlocks(plaintext, ciphertext)
-        plaintext, err = pkcs7Unpad(plaintext, aes.BlockSize)
-        if err != nil {
-                return "", fmt.Errorf("去 padding 失败: %w", err)
+        plaintext, err = pkcs7Unpad(plaintext, ae
+urn "", fmt.Errorf("去 padding 失败: %w", err)
         }
         return string(plaintext), nil
 }
@@ -142,11 +161,11 @@ func h(charArray []rune, modifier interface{}) string {
         }
         var builder strings.Builder
         for _, char := range uniqueChars {
-                newCharCode := abs(int(char) - (numericModifier%127) - 1)
+                newCharCode := abs(int(char) - (n
                 if newCharCode < 33 {
                         newCharCode += 33
                 }
-                builder.WriteRune(rune(newCharCode))
+                builder.WriteRune(rune(newCharCod
         }
         return builder.String()
 }
@@ -203,7 +222,7 @@ func getTimestamp() string {
                 return strconv.FormatInt(time.Now().Unix(), 10)
         }
         data := statusData["data"].(map[string]interface{})
-        return strconv.FormatInt(int64(data["timestamp"].(float64)), 10)
+        return strconv.FormatInt(int64(data["time
 }
 
 func GenerateRequestInfo(apiPath string, body map[string]interface{}) (map[string]interface{}, error) {
@@ -230,7 +249,7 @@ func GenerateRequestInfo(apiPath string, body map[string]interface{}) (map[strin
 
 func getQRCode(c *gin.Context) {
         body := map[string]interface{}{
-                "scopes": "user:base,file:all:read,file:all:write",
+                "scopes": "user:base,file:all:rea
                 "width":  500,
                 "height": 500,
         }
@@ -239,9 +258,7 @@ func getQRCode(c *gin.Context) {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": err})
                 return
         }
-        resp, err := client.R().
-                SetHeaders(requestInfo["headers"].(map[string]string)).
-                SetBody(requestInfo["body"].(map[string]interface{})).
+Body(requestInfo["body"].(map[string]interface{})).
                 Post("https://api.extscreen.com/aliyundrive/v2/qrcode")
         if err != nil || resp.StatusCode() != 200 {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate QR code"})
@@ -268,9 +285,7 @@ func checkStatus(c *gin.Context) {
         if sid == "" {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "invalid sid"})
                 return
-        }
-        statusResp, err := client.R().
-                Get("https://openapi.alipan.com/oauth/qrcode/" + sid + "/status")
+("https://openapi.alipan.com/oauth/qrcode/" + sid + "/status")
         if err != nil || statusResp.StatusCode() != 200 {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check status"})
                 return
@@ -278,14 +293,17 @@ func checkStatus(c *gin.Context) {
         var statusData map[string]interface{}
         json.Unmarshal(statusResp.Body(), &statusData)
         if statusData["status"] == "LoginSuccess" {
-                handleToken(c, map[string]interface{}{"code": statusData["authCode"].(string)})
+                // 扫码登录流程不需要 debug，固定传 false
+                handleToken(c, map[string]interface{}{"code": statusData["authCode"].(string)}, false)
                 return
         }
         c.JSON(http.StatusOK, statusData)
 }
 
+// GET /token?refresh_ui=xxx[&debug=1]
 func getToken(c *gin.Context) {
         refresh := c.Query("refresh_ui")
+        debug := c.Query("debug") == "1"
         if refresh == "" {
                 c.JSON(http.StatusOK, gin.H{
                         "refresh_token": "",
@@ -294,9 +312,10 @@ func getToken(c *gin.Context) {
                 })
                 return
         }
-        handleToken(c, map[string]interface{}{"refresh_token": refresh})
+        handleToken(c, map[string]interface{}{"refresh_token": refresh}, debug)
 }
 
+// POST /token  body: refresh_token=xxx[&debug=1]  或 JSON {"refresh_token":"xxx"}
 func postToken(c *gin.Context) {
         // 同时支持 JSON body 和 form 表单
         refreshToken := c.PostForm("refresh_token")
@@ -307,6 +326,7 @@ func postToken(c *gin.Context) {
                 c.ShouldBindJSON(&body)
                 refreshToken = body.RefreshToken
         }
+        debug := c.Query("debug") == "1" || c.PostForm("debug") == "1"
         if refreshToken == "" {
                 c.JSON(http.StatusOK, gin.H{
                         "refresh_token": "",
@@ -315,10 +335,11 @@ func postToken(c *gin.Context) {
                 })
                 return
         }
-        handleToken(c, map[string]interface{}{"refresh_token": refreshToken})
+        handleToken(c, map[string]interface{}{"refresh_token": refreshToken}, debug)
 }
 
-func handleToken(c *gin.Context, body map[string]interface{}) {
+// handleToken 获取 token；debug=true 时把阿里原始返回明文（token 值打码）放进 debug_plain 字段
+func handleToken(c *gin.Context, body map[string]interface{}, debug bool) {
         requestInfo, err := GenerateRequestInfo("/v4/token", body)
         if err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": err})
@@ -344,13 +365,16 @@ func handleToken(c *gin.Context, body map[string]interface{}) {
                 c.JSON(http.StatusOK, gin.H{
                         "refresh_token": "",
                         "access_token":  "",
-                        "text":          err.Error(),
+                        "text":          err.Erro
                 })
                 return
         }
 
-        // 临时 DEBUG 日志，确认 default_drive_id 是否在阿里返回里
-        log.Printf("[DEBUG] /v4/token plain fields: %s", plain)
+        // 临时 DEBUG 日志，确认阿里返回的完整字段
+        log.Printf("[DEBUG] /v4/token plain field
+
+        var token map[string]interface{}
+        if err := json.Unmarshal([]byte(plain), &
 
         var token map[string]interface{}
         if err := json.Unmarshal([]byte(plain), &token); err != nil {
@@ -360,6 +384,18 @@ func handleToken(c *gin.Context, body map[string]interface{}) {
                         "text":          err.Error(),
                 })
                 return
+        }
+
+        // debug 模式：把阿里原始返回明文（凭据值打码）放进 debug_plain 字段
+        if debug {
+                redacted := plain
+                if at, ok := token["access_token"].(string); ok && at != "" {
+                        redacted = strings.ReplaceAll(redacted, at, "***ACCESS_TOKEN***")
+                }
+                if rt, ok := token["refresh_token"].(string); ok && rt != "" {
+                        redacted = strings.ReplaceAll(redacted, rt, "***REFRESH_TOKEN***")
+                }
+                token["debug_plain"] = redacted
         }
 
         // 原样透传所有字段
