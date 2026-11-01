@@ -1,151 +1,208 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>扫码登录</title>
+    <meta name="referrer" content="no-referrer" />
+    <title>阿里云盘Token获取</title>
     <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #1f1c2c, #928dab);
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-
-        .container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 20px;
-            max-width: 360px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        h2 {
-            margin-bottom: 20px;
-            font-size: 24px;
-            color: #ffde59;
-        }
-
-        img {
-            width: 100%;
-            max-width: 280px;
-            /* height: auto; */
-            border-radius: 8px;
-            margin-bottom: 16px;
-            border: 2px solid #00f0ff;
-            aspect-ratio: 1;
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        textarea {
-            width: 100%;
-            height: 150px;
-            border: none;
-            border-radius: 10px;
-            padding: 10px;
-            font-size: 14px;
-            resize: none;
-            background: rgba(0, 0, 0, 0.1);
-            color: #fff;
-            outline: none;
-            cursor: pointer;
-        }
-
-        textarea::placeholder {
-            color: #ccc;
-        }
-        .tip{
-            word-break: break-all;
-            font-size: 14px
-        }
-
-        @media (max-width: 400px) {
-            .container {
-                padding: 15px;
-            }
-
-            h2 {
-                font-size: 20px;
-            }
-
-            textarea {
-                height: 120px;
-            }
-        }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 24px 16px; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1f1c2c, #928dab); color: #fff; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+        .container { width: 100%; max-width: 420px; padding: 26px 22px; border: 1px solid rgba(255,255,255,.18); border-radius: 18px; background: rgba(255,255,255,.1); box-shadow: 0 10px 32px rgba(0,0,0,.2); text-align: center; }
+        h1 { margin: 0 0 20px; font-size: 24px; color: #ffde59; }
+        .tabs { display: flex; gap: 5px; padding: 5px; margin-bottom: 18px; border-radius: 12px; background: rgba(0,0,0,.22); }
+        button { font: inherit; cursor: pointer; }
+        .tabs button { flex: 1; padding: 11px 5px; border: 0; border-radius: 8px; color: #fff; background: transparent; }
+        .tabs button[aria-selected="true"] { background: #ffde59; color: #211c30; font-weight: 700; }
+        button:focus-visible, textarea:focus-visible { outline: 3px solid #8feaff; outline-offset: 3px; }
+        .description { min-height: 48px; margin: 0 0 16px; color: #eee9f6; font-size: 14px; line-height: 1.6; }
+        .qr-frame { width: min(100%, 280px); aspect-ratio: 1; margin: 0 auto; border-radius: 12px; background: rgba(0,0,0,.15); display: grid; place-items: center; overflow: hidden; }
+        #qr { width: 100%; height: 100%; object-fit: contain; background: white; }
+        #qr[hidden], [hidden] { display: none !important; }
+        #qr-placeholder { padding: 28px; color: #ded5ec; font-size: 14px; line-height: 1.7; }
+        #status { min-height: 44px; margin: 16px 0 8px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+        #status[data-kind="error"] { color: #ffc5bf; }
+        #status[data-kind="success"] { color: #bbffda; }
+        label { display: block; text-align: left; font-size: 13px; margin-bottom: 7px; color: #eee9f6; }
+        textarea { width: 100%; height: 92px; border: 1px solid rgba(255,255,255,.2); border-radius: 10px; padding: 11px; resize: vertical; background: rgba(0,0,0,.2); color: #fff; font: 13px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; }
+        textarea::placeholder { color: #c4bcd0; }
+        .actions { display: flex; gap: 10px; margin: 12px 0 18px; }
+        .actions button { flex: 1; padding: 10px 6px; border-radius: 9px; border: 1px solid rgba(255,255,255,.3); color: #fff; background: rgba(255,255,255,.08); }
+        #copy { background: #ffde59; border-color: #ffde59; color: #211c30; font-weight: 650; }
+        button:disabled { opacity: .5; cursor: default; }
+        .tip { margin: 0; color: #ddd6e9; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+        #refresh-url { display: block; color: #fff; user-select: all; }
+        @media (max-width: 380px) { .container { padding: 22px 16px; } h1 { font-size: 22px; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>请用阿里云盘APP扫码登录</h2>
-        <img id="qr" alt="二维码加载中..." />
-        <textarea id="token" readonly placeholder="用阿里云盘APP扫码登录，这里会出现刷新令牌，点击复制"></textarea>
-        <div class="tip">令牌刷新地址<br><script>
-            document.write(window.location.origin + "/token");
-        </script></div>
+<main class="container">
+    <h1>阿里云盘Token获取</h1>
+    <div class="tabs" role="tablist" aria-label="令牌类型">
+        <button id="tab-tv" role="tab" aria-selected="true" aria-controls="login-panel" data-mode="tv">TV Token</button>
+        <button id="tab-basic" role="tab" aria-selected="false" aria-controls="login-panel" tabindex="-1" data-mode="basic">普通短token</button>
     </div>
-
-    <script>
-        async function getQr() {
-            const qrData = await fetch("/qr")
-            const res = await qrData.json()
-            document.querySelector("#qr").src = res.qr_link;
-            trackLogin(res.sid);
-        }
-
-        async function trackLogin(sid) {
-            while (true) {
-                const statusData = await fetch("/check?sid=" + sid)
-                const status = await statusData.json()
-                if (status.refresh_token) {
-                    document.querySelector("#token").value = status.refresh_token;
-                    break
-                }
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-
-        getQr();
-    </script>
-
-
+    <section id="login-panel" role="tabpanel" aria-labelledby="tab-tv">
+        <p id="description" class="description"></p>
+        <div class="qr-frame">
+            <img id="qr" alt="请用阿里云盘App扫描此二维码" hidden />
+            <span id="qr-placeholder">正在加载二维码…</span>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+        <label for="token" id="token-label">刷新令牌</label>
+        <textarea id="token" readonly spellcheck="false" autocomplete="off" placeholder="扫码并在手机上确认后，令牌会显示在这里"></textarea>
+        <div class="actions">
+            <button id="refresh" type="button">重新生成二维码</button>
+            <button id="copy" type="button" disabled>复制令牌</button>
+        </div>
+        <p id="tv-help" class="tip">TV令牌刷新地址<span id="refresh-url"></span></p>
+        <p id="basic-help" class="tip" hidden>用于小雅的mytoken.txt或ALIYUN_TOKEN。通常为32位，以阿里实际返回为准；请妥善保存。</p>
+    </section>
+</main>
 <script>
-    const textarea = document.getElementById("token");
+(() => {
+    const $ = id => document.getElementById(id);
+    const tabs = [...document.querySelectorAll('[data-mode]')];
+    let mode = 'tv';
+    let generation = 0;
+    let controller;
+    let timer;
 
-    textarea.addEventListener("click", () => {
-        if(!textarea.value) {
-            return
+    function status(text, kind = '') {
+        $('status').textContent = text;
+        $('status').dataset.kind = kind;
+    }
+
+    async function jsonRequest(path, options, signal) {
+        const response = await fetch(path, { cache: 'no-store', ...options, signal });
+        let data;
+        try { data = await response.json(); }
+        catch { throw new Error('服务暂时没有返回有效数据，请重新生成二维码'); }
+        if (!response.ok || data.error || data.text) {
+            throw new Error(typeof data.error === 'string' ? data.error : '获取失败，请稍后重新生成二维码');
         }
-        textarea.select(); // 选中内容
-        textarea.setSelectionRange(0, 99999); // 兼容 iOS
+        return data;
+    }
 
+    async function start() {
+        const run = ++generation;
+        const currentMode = mode;
+        controller?.abort();
+        clearTimeout(timer);
+        controller = new AbortController();
+        const signal = controller.signal;
+        $('token').value = '';
+        $('copy').disabled = true;
+        $('qr').hidden = true;
+        $('qr').removeAttribute('src');
+        $('qr-placeholder').hidden = false;
+        $('qr-placeholder').textContent = '正在加载二维码…';
+        $('refresh').disabled = true;
+        status('正在连接阿里云盘…');
         try {
-            const success = document.execCommand('copy');
-            if (success) {
-                alert("已复制到剪贴板！");
-            } else {
-                alert("复制失败，请手动复制");
+            const qr = await jsonRequest(currentMode === 'basic' ? '/basic/qr' : '/qr',
+                currentMode === 'basic' ? { method: 'POST' } : {}, signal);
+            if (run !== generation) return;
+            const session = currentMode === 'basic' ? qr.session_id : qr.sid;
+            if (!qr.qr_link || !session) throw new Error('二维码数据不完整，请重试');
+            $('qr').src = qr.qr_link;
+            $('qr').hidden = false;
+            $('qr-placeholder').hidden = true;
+            $('refresh').disabled = false;
+            status('请用阿里云盘App扫码，并在手机上确认');
+            const deadline = Date.now() + 5 * 60 * 1000;
+            async function poll() {
+                if (run !== generation) return;
+                if (Date.now() >= deadline) {
+                    status('二维码已过期，请重新生成', 'error');
+                    return;
+                }
+                try {
+                    const result = currentMode === 'basic'
+                        ? await jsonRequest('/basic/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: session }) }, signal)
+                        : await jsonRequest('/check?sid=' + encodeURIComponent(session), {}, signal);
+                    if (run !== generation) return;
+                    if (typeof result.refresh_token === 'string' && result.refresh_token) {
+                        $('token').value = result.refresh_token;
+                        $('copy').disabled = false;
+                        const length = result.refresh_token.length;
+                        status(currentMode === 'basic' ? `已取得普通刷新令牌，共${length}位` : '已取得TV刷新令牌', 'success');
+                        return;
+                    }
+                    const state = result.status;
+                    if (['EXPIRED', 'QRCodeExpired', 'Expired', 'LoginExpired'].includes(state)) {
+                        status('二维码已过期，请重新生成', 'error');
+                        return;
+                    }
+                    if (['CANCELED', 'QRCodeCanceled', 'LoginCanceled'].includes(state)) {
+                        status('已取消登录，可以重新生成二维码', 'error');
+                        return;
+                    }
+                    if (['SCANED', 'ScanSuccess'].includes(state)) status('扫码成功，请在手机上确认登录');
+                    timer = setTimeout(poll, 2000);
+                } catch (error) {
+                    if (run !== generation || error.name === 'AbortError') return;
+                    status(error.message || '网络连接失败，请重新生成二维码', 'error');
+                }
             }
-        } catch (err) {
-            console.error("复制异常:", err);
-            alert("复制异常，请手动复制");
+            timer = setTimeout(poll, 1000);
+        } catch (error) {
+            if (run !== generation || error.name === 'AbortError') return;
+            $('qr-placeholder').textContent = '二维码加载失败';
+            status(error.message || '网络连接失败，请重新生成二维码', 'error');
+        } finally {
+            if (run === generation) $('refresh').disabled = false;
         }
+    }
 
-        // 可选：取消选中状态
-        window.getSelection().removeAllRanges();
+    function selectMode(next) {
+        mode = next;
+        tabs.forEach(tab => {
+            const selected = tab.dataset.mode === mode;
+            tab.setAttribute('aria-selected', String(selected));
+            tab.tabIndex = selected ? 0 : -1;
+        });
+        $('login-panel').setAttribute('aria-labelledby', 'tab-' + mode);
+        $('description').textContent = mode === 'basic'
+            ? '获取普通阿里云盘刷新令牌，通常为32位。用阿里云盘App扫码并确认登录。'
+            : '获取TV刷新令牌，用于OpenList或小雅的TV通道。用阿里云盘App扫码并确认登录。';
+        $('token-label').textContent = mode === 'basic' ? '普通刷新令牌（短token）' : 'TV刷新令牌';
+        $('tv-help').hidden = mode !== 'tv';
+        $('basic-help').hidden = mode !== 'basic';
+        history.replaceState(null, '', mode === 'basic' ? '#basic' : '#tv');
+        start();
+    }
+
+    async function copyToken() {
+        if (!$('token').value) return;
+        let copied = false;
+        try { await navigator.clipboard.writeText($('token').value); copied = true; } catch {}
+        if (!copied) {
+            $('token').select();
+            $('token').setSelectionRange(0, $('token').value.length);
+            try { copied = document.execCommand('copy'); } catch {}
+        }
+        status(copied ? '令牌已复制' : '请选中令牌后手动复制', copied ? 'success' : 'error');
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => selectMode(tab.dataset.mode));
+        tab.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+            event.preventDefault();
+            const next = tabs.find(item => item !== tab);
+            selectMode(next.dataset.mode);
+            next.focus();
+        });
     });
+    $('refresh').addEventListener('click', start);
+    $('copy').addEventListener('click', copyToken);
+    $('token').addEventListener('click', copyToken);
+    $('refresh-url').textContent = location.origin + '/token';
+    window.addEventListener('pagehide', () => { controller?.abort(); clearTimeout(timer); });
+    window.addEventListener('pageshow', event => { if (event.persisted) start(); });
+    selectMode(location.hash === '#basic' ? 'basic' : 'tv');
+})();
 </script>
 </body>
 </html>

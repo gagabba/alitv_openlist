@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -20,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"main/internal/basictoken"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-resty/resty/v2"
@@ -142,7 +145,7 @@ func h(charArray []rune, modifier interface{}) string {
 	}
 	var builder strings.Builder
 	for _, char := range uniqueChars {
-		newCharCode := abs(int(char) - (numericModifier%127) - 1)
+		newCharCode := abs(int(char) - (numericModifier % 127) - 1)
 		if newCharCode < 33 {
 			newCharCode += 33
 		}
@@ -356,9 +359,6 @@ func handleToken(c *gin.Context, body map[string]interface{}, debug bool) {
 		return
 	}
 
-	// 临时 DEBUG 日志
-	log.Printf("[DEBUG] /v4/token plain fields: %s", plain)
-
 	var token map[string]interface{}
 	if err := json.Unmarshal([]byte(plain), &token); err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -409,12 +409,23 @@ func handleToken(c *gin.Context, body map[string]interface{}, debug bool) {
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
-	router := gin.Default()
+	router := gin.New()
+	// GET /token may carry a credential in its query. Do not log request
+	// URLs or dump requests during recovery, nor log decrypted token bodies.
+	router.Use(gin.CustomRecoveryWithWriter(io.Discard, func(c *gin.Context, _ any) {
+		log.Print("request handler failed")
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+	}))
 	router.SetTrustedProxies(nil)
 
 	router.GET("/", func(c *gin.Context) {
-		c.Writer.Write(indexHtml)
+		c.Header("Cache-Control", "no-store")
+		c.Header("Referrer-Policy", "no-referrer")
+		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHtml)
 	})
+	basic := basictoken.New()
+	router.POST("/basic/qr", gin.WrapF(basic.Generate))
+	router.POST("/basic/check", gin.WrapF(basic.Check))
 	router.GET("/qr", getQRCode)
 	router.GET("/check", checkStatus)
 	router.GET("/token", getToken)
