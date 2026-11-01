@@ -26,7 +26,7 @@ WORKDIR /root/
 # 从构建阶段复制二进制文件
 COPY --from=builder /app/app .
 
-# 开放端口（如果有）
+# 默认端口声明；实际监听优先使用运行时PORT（Railway可使用8080）
 EXPOSE 8081
 
 # 设置环境变量

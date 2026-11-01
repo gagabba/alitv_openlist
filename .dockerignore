@@ -1,0 +1,10 @@
+# Send only the files needed by the root Go service to the Docker builder.
+# Keep this allowlist in sync when adding a Go package or embedded asset.
+**
+!go.mod
+!go.sum
+!main.go
+!index.html
+!internal/
+!internal/basictoken/
+!internal/basictoken/service.go
